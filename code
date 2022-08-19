@@ -1,0 +1,353 @@
+#第一步
+import pandas as pd
+import os
+from kneed import KneeLocator
+from wgdi import block_ks
+from wgdi import dotplot
+def draw_dot(len1,len2,i,j): #len文件位置
+    # data = pd.read_csv(len_path,"\t", header=None)
+    len1[3] = len1[2].values / len1[2].sum()*10 #计算边框
+    len2[3] = len2[2].values / len2[2].sum() * 10
+    if len(str(i))==1: #图片命名用
+        a = "0"+str(i)
+    else:
+        a = str(i)
+    if len(str(j))==1:
+        b =  "0"+str(j)
+    else:
+        b = str(j)
+    with open('total.conf', 'w') as f:
+        f.write("[blockks]\n\
+        lens1 = Bra{}.len\n\
+        lens2 = BN{}.len\n\
+        genome1_name =\n\
+        genome2_name =\n\
+        blockinfo =  ks.csv\n\
+        pvalue = 0.01\n\
+        tandem = true\n\
+        tandem_length = 5\n\
+        markersize = 1\n\
+        area = 0,2\n\
+        block_length =  5\n\
+        figsize = {},{}\n\
+        savefig = {}.png".format(j,i,len1[3][i-1],len2[3][j-1],a+b))
+if __name__ == "__main__":
+    data1 = pd.read_csv("Bra.len","\t", header=None)
+    data2 = pd.read_csv("BN.len","\t", header=None)
+    # for i in range(len(data2)):
+    #     data2.loc[[i]].to_csv("Sbi{}.len".format(i+1),"\t",index=False,header=None)
+    for i in range(1,11):
+        for j in range(1,11):
+            draw_dot(data2,data1,i,j)
+            os.system("wgdi -bk total.conf")
+#第二步
+import cv2
+import numpy as np
+import os
+import math
+import pandas as pd
+import matplotlib.pyplot as plt
+import itertools
+
+class Couple_And_Four():
+    def __init__(self,single_path):
+        self.single_path = single_path
+
+
+    def get_single_names(self,files):
+        '''
+        files:当前目录路径
+        获取当前目录下单张图片的名字，将csv保存到该目录下
+        '''
+        names_single = []
+        chr_num = int(math.sqrt(len(files))) # 获取染色体数目
+        chr_name = []
+         #====利用数目，保存染色体名称======
+        for j in range(1,chr_num+1):
+            if j<10:
+                n='0'+str(j)
+                chr_name.append(n)
+            else:
+                chr_name.append(str(j))
+        single_name_df = pd.DataFrame(columns=['r','name'])
+        for name in chr_name:
+            row = []
+            for pic in files:
+                if pic[-3:] == 'png' and str(pic[2:4])==str(name):
+                    row.append(pic)
+            r = {'r':name,'name':row}
+            single_name_df = single_name_df.append(r,ignore_index=True)
+            single_name_df.to_csv('single_name.csv',index = False)
+        return single_name_df
+
+    def get_couple_names(self,files):
+        '''
+        files:当前目录路径
+        获取当前目录下两张组合的图片的名字，将csv保存到该目录下
+        '''
+        chr_num = int(files[-2][:2])
+        chr_name = []
+        for j in range(1,chr_num+1):
+            if j<10:
+                n='0'+str(j)
+                chr_name.append(n)
+            else:
+                chr_name.append(str(j))
+        couple_name_df = pd.DataFrame(columns=['c','name'])
+        for p in itertools.permutations(chr_name,2):
+            col = []
+            for pic in files:
+                if pic[-3:] == 'png':
+                    if pic[:2] == p[0] and pic[5:7]==p[1]:
+                        col.append(pic)
+            c = {'c':p,'name':col}
+            couple_name_df = couple_name_df.append(c,ignore_index=True)
+            couple_name_df.to_csv('couple_name.csv',index = False)
+        return couple_name_df
+
+    def merge2(self,pic1,pic2,couple_file):
+        '''
+        pic1:等待组合连接的图片1路径
+        pic2:等待组合连接的图片2路径
+        对两张图像进行横向组合，保存至指定目录下
+        '''
+        img1 = cv2.imread(pic1,0)
+        img2 = cv2.imread(pic2,0)
+#         img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
+#         img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
+        #====使用numpy的数组矩阵合并concatenate======
+        h1 = img1.shape[0]
+        w1 = img1.shape[1]
+        image = np.concatenate([img1, img2], axis=1)
+#         ====判断图像矩阵是否为空白图======
+        if np.where(image!=255)[0].shape[0]==0:
+            return
+        else:
+            #====在组合图上加入分割线======
+            # for i in range(h1):
+            #     image[i][w1-1]=137
+            try:
+                ret, binary = cv2.threshold(image,0,255,cv2.THRESH_BINARY | cv2.THRESH_OTSU)#大津法：cv2.THRESH_OTSU
+                binary1 = cv2.cvtColor(binary, cv2.COLOR_BGR2RGB)
+                cv2.imwrite(couple_file+pic1[:4]+'_'+pic2[:4]+".png", binary1) #保存图片
+            except:
+                return "!!"
+
+
+    def merge4(self,pic1,pic2,four_file):
+        '''
+        pic1:等待组合连接的图片1路径
+        pic2:等待组合连接的图片2路径
+        对两张图像进行纵向组合，保存至指定目录下
+        '''
+        img1 = cv2.imread(pic1)
+        img2 = cv2.imread(pic2)
+        img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
+        img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
+        #====使用numpy的数组矩阵合并concatenate======
+        h1 = img1.shape[0]
+        w1 = img1.shape[1]
+        image = np.concatenate([img1, img2], axis=0)
+        #====在组合图上加入分割线======
+        # for i in range(w1):
+        #     image[h1-1][i]=137
+        try:
+            cv2.imwrite(four_file+pic1[:9]+'_'+pic2[:9]+".png", image) #保存图片
+        except:
+            return "!!"
+
+    def to_do(self):
+        os.chdir(self.single_path)
+        os.mkdir('couple/')
+        files = os.listdir()
+        single_name_df = self.get_single_names(files)
+        couple_file = './couple/'
+        for r,name in zip(single_name_df['r'],single_name_df['name']):
+#             for p in itertools.permutations(name,2):
+            for p in itertools.combinations(name,2):
+                self.merge2(p[0],p[1],couple_file)
+        couple_path = os.path.join(self.single_path,'couple')
+        os.chdir(couple_path)
+        os.mkdir('four/')
+        files2 = os.listdir()
+        couple_name_df = self.get_couple_names(files2)
+        four_file = './four/'
+        for c,name in zip(couple_name_df['c'],couple_name_df['name']):
+#             for p in itertools.permutations(name,2):  # 可顺序颠倒
+            for p in itertools.combinations(name,2):
+                self.merge4(p[0],p[1],four_file)
+
+single = 'E:/PycharmProjects/shiyan-quan-Bra'
+a = Couple_And_Four(single)
+a.to_do()
+
+#第三步
+import cv2
+import pandas as pd
+from sklearn.cluster import DBSCAN
+from sklearn.decomposition import PCA
+import numpy as np
+import os
+
+
+
+def img4_new(imgpath,img1path):
+    '''
+    四张图片组合切分拼接
+    :param imgpath: 图片路径
+    :param img1path: 左上角图片路径
+    :return: 原图和切分拼接的图共3张
+    '''
+    img = cv2.imread(imgpath)
+    img_1 = cv2.imread(img1path)
+    print(img.shape)
+    print(img_1.shape)
+    w = img_1.shape[1]
+    h = img_1.shape[0]
+    img1 = np.concatenate((img[h:],img[:h]))  ##上下换
+    l_img = []
+    r_img = []
+    for i in img:
+        l_img.append(i[:w])
+        r_img.append(i[w:])
+    img2 = np.concatenate((r_img,l_img),axis=1)  ##左右换
+    return img,img1,img2
+def img2_new(imgpath,img1path):
+    '''
+    两张图组合切分拼接
+    :param imgpath: 组合图片
+    :param img1path: 左上角图片
+    :return: 原图和拼接图共2张
+    '''
+    img = cv2.imread(imgpath)
+    img_1 = cv2.imread(img1path)
+    h = img_1.shape[0]
+    img1 = np.concatenate((img[h:], img[:h]))
+    return img,img1
+def resemblance(imgname,img,biaozhunpath,w,h):
+    '''
+    :param img: 要计算的图片
+    :param biaozhunpath: 标准csv路径
+    :param w: 图片resize的宽
+    :param h: 图片resize的高
+    :return: 相似度
+    '''
+    resized = cv2.resize(img, (w, h))
+    img_gray = cv2.cvtColor(resized, cv2.COLOR_RGB2GRAY)
+    for i in range(len(img_gray)):
+        for j in range(len(img_gray[0])):
+            if img_gray[i][j]>100:
+                img_gray[i][j]=255
+    biaozhun = pd.read_csv(biaozhunpath)
+    biaozhun = biaozhun[biaozhun["id"]==4] #############更改样式
+    locations = []
+    #temp1 = []
+    for i in range(img_gray.shape[0]):
+        for j in range(img_gray.shape[1]):
+            #temp1.append({'x': j, 'y': i})
+            if img_gray[i][j] < 20:
+                locations.append({'x': j, 'y': i})
+    data = pd.DataFrame(locations)
+    #temp2 = pd.DataFrame(temp1)
+    #print("temp",temp2)
+    #print("data",data)
+    if len(data) != 0:
+        model = DBSCAN(eps=5, min_samples=3).fit(data)
+        auto_label = model.labels_
+        lable = set(auto_label)
+        print(lable)
+        data.index = auto_label
+        kuang = []
+        for i in lable:
+            if i != -1:
+                df = data[data.index == i]
+                lu_x = df.x.min()
+                lu_y = df.y.max()
+                rd_x = df.x.max()
+                rd_y = df.y.min()
+                pca = PCA(n_components=1).fit(df)
+                for i, (comp, var) in enumerate(zip(pca.components_, pca.explained_variance_)):
+                    comp = comp * var
+                if comp[0]==0:
+                    a = 0
+                else:
+                    a = round(comp[1] / comp[0], 2)
+                kuang.append([[lu_x, lu_y], [rd_x, rd_y], len(df), a])
+        kuang.sort(key=lambda x: x[2], reverse=True)
+        print(kuang)
+        bijiao = kuang[:len(biaozhun)]
+        print(bijiao)
+        biaozhun["flage"] = [True]*len(biaozhun)
+        al_sim = []
+        for i in bijiao:
+            similar = []
+            n = biaozhun.index[0]
+            for row in biaozhun.values:
+                if row[9]:
+                    l_x = abs(i[0][0] - row[3])
+                    l_y = abs(i[0][1] - row[4])
+                    r_x = abs(i[1][0] - row[5])
+                    r_y = abs(i[1][1] - row[6])
+                    num = abs(i[2] - row[2])
+                    k = abs(i[3] - row[1])
+                    s = l_x + l_y + r_x + r_y + num + k
+                    similar.append([s, n])
+                n += 1
+            similar.sort(key=lambda x: x[0])
+            print(similar)
+            al_sim.append(similar[0][0])
+            biaozhun.loc[similar[0][1], ("flage")] = False
+            biaozhun.loc[similar[0][1], ("n_k")] = i[3]
+            biaozhun.loc[similar[0][1], ("n_num")] = i[2]
+            biaozhun.loc[similar[0][1], ("n_lx")] = i[0][0]
+            biaozhun.loc[similar[0][1], ("n_ly")] = i[0][1]
+            biaozhun.loc[similar[0][1], ("n_rx")] = i[1][0]
+            biaozhun.loc[similar[0][1], ("n_ry")] = i[1][1]
+            biaozhun.loc[similar[0][1], ("similarity")] = similar[0][0]
+        biaozhun["sum_similarity"] = sum(al_sim)
+        biaozhun["imgname"] = imgname
+        print(biaozhun)
+        return biaozhun
+
+def small_simi(file,lastfile):
+    df = pd.read_csv(file)
+    dfn = df.groupby("imgname").apply(lambda t: t[t.sum_similarity==t.sum_similarity.min()])
+    dfn.to_csv(lastfile)
+    return
+def savefile(df,spath,columns):
+    if df is None:
+        print("None!!")
+    else:
+        if os.path.exists(spath):
+            df.to_csv(spath, mode='a',encoding='utf_8_sig',header = False,columns=columns,index=False)
+        else:
+            df.to_csv(spath,encoding='utf_8_sig',columns=columns,index=False)
+            print("保存成功！")
+def main():
+    picpath = r'E:\PycharmProjects\shiyan-Osa'   ##图片路径
+    piclist = os.listdir(picpath)
+    piclist = [i for i in piclist if i[-3:]=='png' or i[-3:]=='jpg']
+    spath = r'E:\PycharmProjects\shiyan-Osa\result.csv'   ###所有数据文件
+    lastfile = r'E:\PycharmProjects\shiyan-Osa\resultlast.csv'  ##最相似数据文件
+    for i in piclist:
+        picsplit = i.split("_")
+        imgpath = os.path.join(picpath, i)
+        img1path = os.path.join(picpath, picsplit[0] + ".png")
+        columns = ["k", "n_k", "num", "n_num", "l_x", "n_lx", "l_y", "n_ly", "r_x", "n_rx", "r_y", "n_ry", "similarity",
+                   "sum_similarity", "imgname"]
+        biaozhunspath = 'biaozhun.csv'
+        if len(picsplit)==4:
+            img,img1,img2 = img4_new(imgpath,img1path)
+            for j in [img,img1,img2]:
+                resualt = resemblance(i,j,biaozhunspath,110,101)
+                savefile(resualt,spath,columns)
+        elif len(picsplit)==2:
+            img,img1 = img2_new(imgpath,img1path)
+            for j in [img,img1]:
+                resualt = resemblance(i,j,biaozhunspath,110,101)
+                savefile(resualt,spath,columns)
+
+    small_simi(spath,lastfile)
+    return
+if __name__=='__main__':
+    main()
