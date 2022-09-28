@@ -1,14 +1,14 @@
-#第一步
+#获得单个点阵图
 import pandas as pd
 import os
 from kneed import KneeLocator
 from wgdi import block_ks
 from wgdi import dotplot
-def draw_dot(len1,len2,i,j): #len文件位置
+def draw_dot(len1,len2,i,j): 
     # data = pd.read_csv(len_path,"\t", header=None)
-    len1[3] = len1[2].values / len1[2].sum()*10 #计算边框
+    len1[3] = len1[2].values / len1[2].sum()*10 
     len2[3] = len2[2].values / len2[2].sum() * 10
-    if len(str(i))==1: #图片命名用
+    if len(str(i))==1: 
         a = "0"+str(i)
     else:
         a = str(i)
@@ -16,7 +16,7 @@ def draw_dot(len1,len2,i,j): #len文件位置
         b =  "0"+str(j)
     else:
         b = str(j)
-    with open('total.conf', 'w') as f:
+    with open('total.conf', 'w') as f: #具体参见WGDI
         f.write("[blockks]\n\
         lens1 = Bra{}.len\n\
         lens2 = BN{}.len\n\
@@ -31,7 +31,7 @@ def draw_dot(len1,len2,i,j): #len文件位置
         block_length =  5\n\
         figsize = {},{}\n\
         savefig = {}.png".format(j,i,len1[3][i-1],len2[3][j-1],a+b))
-if __name__ == "__main__":
+if __name__ == "__main__":             #根据所选物种设置
     data1 = pd.read_csv("Bra.len","\t", header=None)
     data2 = pd.read_csv("BN.len","\t", header=None)
     # for i in range(len(data2)):
@@ -40,7 +40,7 @@ if __name__ == "__main__":
         for j in range(1,11):
             draw_dot(data2,data1,i,j)
             os.system("wgdi -bk total.conf")
-#第二步
+#输出组合图
 import cv2
 import numpy as np
 import os
@@ -55,14 +55,9 @@ class Couple_And_Four():
 
 
     def get_single_names(self,files):
-        '''
-        files:当前目录路径
-        获取当前目录下单张图片的名字，将csv保存到该目录下
-        '''
         names_single = []
-        chr_num = int(math.sqrt(len(files))) # 获取染色体数目
+        chr_num = int(math.sqrt(len(files))) 
         chr_name = []
-         #====利用数目，保存染色体名称======
         for j in range(1,chr_num+1):
             if j<10:
                 n='0'+str(j)
@@ -81,10 +76,6 @@ class Couple_And_Four():
         return single_name_df
 
     def get_couple_names(self,files):
-        '''
-        files:当前目录路径
-        获取当前目录下两张组合的图片的名字，将csv保存到该目录下
-        '''
         chr_num = int(files[-2][:2])
         chr_name = []
         for j in range(1,chr_num+1):
@@ -106,53 +97,32 @@ class Couple_And_Four():
         return couple_name_df
 
     def merge2(self,pic1,pic2,couple_file):
-        '''
-        pic1:等待组合连接的图片1路径
-        pic2:等待组合连接的图片2路径
-        对两张图像进行横向组合，保存至指定目录下
-        '''
         img1 = cv2.imread(pic1,0)
         img2 = cv2.imread(pic2,0)
-#         img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
-#         img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
-        #====使用numpy的数组矩阵合并concatenate======
         h1 = img1.shape[0]
         w1 = img1.shape[1]
         image = np.concatenate([img1, img2], axis=1)
-#         ====判断图像矩阵是否为空白图======
         if np.where(image!=255)[0].shape[0]==0:
             return
         else:
-            #====在组合图上加入分割线======
-            # for i in range(h1):
-            #     image[i][w1-1]=137
             try:
-                ret, binary = cv2.threshold(image,0,255,cv2.THRESH_BINARY | cv2.THRESH_OTSU)#大津法：cv2.THRESH_OTSU
+                ret, binary = cv2.threshold(image,0,255,cv2.THRESH_BINARY | cv2.THRESH_OTSU)
                 binary1 = cv2.cvtColor(binary, cv2.COLOR_BGR2RGB)
-                cv2.imwrite(couple_file+pic1[:4]+'_'+pic2[:4]+".png", binary1) #保存图片
+                cv2.imwrite(couple_file+pic1[:4]+'_'+pic2[:4]+".png", binary1) 
             except:
                 return "!!"
 
 
     def merge4(self,pic1,pic2,four_file):
-        '''
-        pic1:等待组合连接的图片1路径
-        pic2:等待组合连接的图片2路径
-        对两张图像进行纵向组合，保存至指定目录下
-        '''
         img1 = cv2.imread(pic1)
         img2 = cv2.imread(pic2)
         img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
         img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
-        #====使用numpy的数组矩阵合并concatenate======
         h1 = img1.shape[0]
         w1 = img1.shape[1]
         image = np.concatenate([img1, img2], axis=0)
-        #====在组合图上加入分割线======
-        # for i in range(w1):
-        #     image[h1-1][i]=137
         try:
-            cv2.imwrite(four_file+pic1[:9]+'_'+pic2[:9]+".png", image) #保存图片
+            cv2.imwrite(four_file+pic1[:9]+'_'+pic2[:9]+".png", image) 
         except:
             return "!!"
 
@@ -163,7 +133,6 @@ class Couple_And_Four():
         single_name_df = self.get_single_names(files)
         couple_file = './couple/'
         for r,name in zip(single_name_df['r'],single_name_df['name']):
-#             for p in itertools.permutations(name,2):
             for p in itertools.combinations(name,2):
                 self.merge2(p[0],p[1],couple_file)
         couple_path = os.path.join(self.single_path,'couple')
@@ -173,15 +142,14 @@ class Couple_And_Four():
         couple_name_df = self.get_couple_names(files2)
         four_file = './four/'
         for c,name in zip(couple_name_df['c'],couple_name_df['name']):
-#             for p in itertools.permutations(name,2):  # 可顺序颠倒
             for p in itertools.combinations(name,2):
                 self.merge4(p[0],p[1],four_file)
 
-single = 'E:/PycharmProjects/shiyan-quan-Bra'
+single = 'E:/PycharmProjects/shiyan-quan-Bra'  #单个图片的位置、以及len文件的位置
 a = Couple_And_Four(single)
 a.to_do()
 
-#第三步
+#得到最后结果
 import cv2
 import pandas as pd
 from sklearn.cluster import DBSCAN
@@ -190,48 +158,28 @@ import numpy as np
 import os
 
 
-
 def img4_new(imgpath,img1path):
-    '''
-    四张图片组合切分拼接
-    :param imgpath: 图片路径
-    :param img1path: 左上角图片路径
-    :return: 原图和切分拼接的图共3张
-    '''
     img = cv2.imread(imgpath)
     img_1 = cv2.imread(img1path)
     print(img.shape)
     print(img_1.shape)
     w = img_1.shape[1]
     h = img_1.shape[0]
-    img1 = np.concatenate((img[h:],img[:h]))  ##上下换
+    img1 = np.concatenate((img[h:],img[:h]))  
     l_img = []
     r_img = []
     for i in img:
         l_img.append(i[:w])
         r_img.append(i[w:])
-    img2 = np.concatenate((r_img,l_img),axis=1)  ##左右换
+    img2 = np.concatenate((r_img,l_img),axis=1)  
     return img,img1,img2
 def img2_new(imgpath,img1path):
-    '''
-    两张图组合切分拼接
-    :param imgpath: 组合图片
-    :param img1path: 左上角图片
-    :return: 原图和拼接图共2张
-    '''
     img = cv2.imread(imgpath)
     img_1 = cv2.imread(img1path)
     h = img_1.shape[0]
     img1 = np.concatenate((img[h:], img[:h]))
     return img,img1
 def resemblance(imgname,img,biaozhunpath,w,h):
-    '''
-    :param img: 要计算的图片
-    :param biaozhunpath: 标准csv路径
-    :param w: 图片resize的宽
-    :param h: 图片resize的高
-    :return: 相似度
-    '''
     resized = cv2.resize(img, (w, h))
     img_gray = cv2.cvtColor(resized, cv2.COLOR_RGB2GRAY)
     for i in range(len(img_gray)):
@@ -241,16 +189,12 @@ def resemblance(imgname,img,biaozhunpath,w,h):
     biaozhun = pd.read_csv(biaozhunpath)
     biaozhun = biaozhun[biaozhun["id"]==4] #############更改样式
     locations = []
-    #temp1 = []
     for i in range(img_gray.shape[0]):
         for j in range(img_gray.shape[1]):
             #temp1.append({'x': j, 'y': i})
             if img_gray[i][j] < 20:
                 locations.append({'x': j, 'y': i})
     data = pd.DataFrame(locations)
-    #temp2 = pd.DataFrame(temp1)
-    #print("temp",temp2)
-    #print("data",data)
     if len(data) != 0:
         model = DBSCAN(eps=5, min_samples=3).fit(data)
         auto_label = model.labels_
@@ -324,11 +268,10 @@ def savefile(df,spath,columns):
             df.to_csv(spath,encoding='utf_8_sig',columns=columns,index=False)
             print("保存成功！")
 def main():
-    picpath = r'E:\PycharmProjects\shiyan-Osa'   ##图片路径
+    picpath = r'E:\PycharmProjects\shiyan-Osa'   ##组合图片路径
     piclist = os.listdir(picpath)
     piclist = [i for i in piclist if i[-3:]=='png' or i[-3:]=='jpg']
-    spath = r'E:\PycharmProjects\shiyan-Osa\result.csv'   ###所有数据文件
-    lastfile = r'E:\PycharmProjects\shiyan-Osa\resultlast.csv'  ##最相似数据文件
+    lastfile = r'E:\PycharmProjects\shiyan-Osa\resultlast.csv'  ##输出文件路径
     for i in piclist:
         picsplit = i.split("_")
         imgpath = os.path.join(picpath, i)
